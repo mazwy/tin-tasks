@@ -51,8 +51,6 @@ app.use(express.static(path.join(__dirname, "public")));
 app.get("/", (req, res) => {
     res.render("index", {
         title: "Home",
-        date: date,
-        hour: hour,
     });
 });
 
@@ -67,8 +65,7 @@ app.get("/about", (req, res) => {
 app.get("/contact", (req, res) => {
     res.render("contact", {
         title: "Contact",
-        date: date,
-        hour: hour,
+        link: "https://github.com/mazwy"
     });
 });
 
@@ -84,10 +81,18 @@ app.get("/file/:filename", async (req, res) => {
     const {filename} = req.params;
 
     try {
-        const data = await fs.readFile(`./files/${filename}`, "utf8");
-        res.send(data);
+        const filePath = `./files/${filename}`;
+        await fs.access(filePath);
+        const file = await fs.readFile(filePath, "utf-8");
+        res.render("file", {
+            title: filename,
+            file: file,
+        });
     } catch (err) {
-        res.send("File not found");
+        res.render("error", {
+            title: "Error",
+            error: err,
+        });
     }
 });
 
@@ -115,8 +120,6 @@ app.post("/form", express.urlencoded({extended: true}), (req, res) => {
     if (errors.length > 0) {
         res.render("form", {
             title: "Form",
-            date: date,
-            hour: hour,
             errors: errors,
             oldData: req.body,
         });
@@ -126,7 +129,7 @@ app.post("/form", express.urlencoded({extended: true}), (req, res) => {
 });
 
 app.use((req, res) => {
-    res.status(404).render("404", {
+    res.status(404).render("error", {
         title: "404",
         date: date,
         hour: hour,
