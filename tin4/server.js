@@ -1,57 +1,115 @@
 const express = require('express');
-const app = express();
+const sql3 = require('sqlite3').verbose();
+const { open } = require('sqlite');
 const bodyParser = require('body-parser');
-const sqlite3 = require('sqlite3').verbose();
 
-app.use(bodyParser.urlencoded({ extended: false }));
+const app = express();
+
+app.use(express.static("public"));
 app.use(bodyParser.json());
-app.use(express.static('public'));
+app.set('views', './pages');
+app.set('view engine', 'ejs');
 
-const db = new sqlite3.Database('db.sqlite', (err) => {
-    if (err) {
-        return console.error(err.message);
-    }
-    console.log('Connected to the in-memory SQLite database.');
-});
+const path = "./db.sqlite";
+let db;
 
-const initTables = () => {
-    db.run('CREATE TABLE IF NOT EXISTS table1 (id INTEGER PRIMARY KEY, name TEXT, table2_id INTEGER)');
-    db.run('CREATE TABLE IF NOT EXISTS table2 (id INTEGER PRIMARY KEY, description TEXT)');
-};
-
-initTables();
-
-app.get('/data', (req, res) => {
-    db.all("SELECT * FROM table1 JOIN table2 ON table1.table2_id = table2.id", [], (err, rows) => {
-        if (err) {
-            res.status(400).json({ "error": err.message });
-            return;
-        }
-        res.json({
-            "message": "success",
-            "data": rows
-        });
+async function init(path) {
+    db = await open({
+        filename: path,
+        driver: sql3.Database,
     });
+}
+
+app.get("/", async (req, res) => {
+    res.sendFile(__dirname + "/pages/index.html");
 });
 
-app.post('/data', (req, res) => {
-    const { id, name, table2_id, description } = req.body;
-    db.run(`INSERT INTO table1 (id, name, table2_id) VALUES(?, ?, ?)
-            ON CONFLICT(id) DO UPDATE SET name=excluded.name, table2_id=excluded.table2_id`,
-        [id, name, table2_id],
-        function (err) {
-            if (err) {
-                res.status(400).json({ "error": err.message });
-                return;
-            }
-            res.json({
-                "message": "success",
-                "data": this.lastID
-            });
-        });
+app.get("/movies", async (req, res) => {
+    res.sendFile(__dirname + "/pages/movies.html");
 });
 
+app.get("/movies/:id", async (req, res) => {
+    const {id} = req.params;
+    const data = await db.get("SELECT * FROM movie WHERE id = ?", id);
+    res.json(data);
+});
 
-app.listen(3000, () => {
-    console.log('Server is running on port 3000');
+app.post("/movies/add", async (req, res) => {
+    const {title, genre} = req.body;
+    const genreId = await db.get("SELECT id FROM genre WHERE name = ?", genre);
+
+    if (genreId === null) {
+        res.status(404).json({error: "Genre not found"});
+        return;
+    }
+
+    const data = await db.all("INSERT INTO movie (title, genreid) VALUES (?, ?)", title, genreId.id);
+    res.json(data);
+});
+
+app.put("/movies/:id", async (req, res) => {
+    const {id} = req.params;
+    const {title, year, rating} = req.body;
+    const data = await db.all("UPDATE movie SET title = ?, year = ?, rating = ? WHERE id = ?", title, year, rating, id);
+    res.json(data);
+});
+
+app.delete("/movies/:id", async (req, res) => {
+    const {id} = req.params;
+    const data = await db.all("DELETE FROM movie WHERE id = ?", id);
+    res.json(data);
+});
+
+app.get("/genres", async (req, res) => {
+    res.sendFile(__dirname + "/pages/genres.html");
+});
+
+app.get("/genres/all", async (req, res) => {
+    const data = await db.all("SELECT * FROM genre");
+    console.log(data);
+    if (data.length === 0) {
+        res.status(404).json({error: "No genres found"});
+        return;
+    }
+    res.json(data);
+});
+
+app.get("/genres/:id", async (req, res) => {
+    const {id} = req.params;
+    const data = await db.get("SELECT * FROM genre WHERE id = ?", id);
+    res.json(data);
+
+});
+
+app.post("/genres", async (req, res) => {
+    const {name} = req.body;
+    const data = await db.all("INSERT INTO genre (name) VALUES (?)", name);
+    res.json(data);
+});
+
+app.put("/genres/:id", async (req, res) => {
+    const {id} = req.params;
+    const {name} = req.body;
+    const data = await db.all("UPDATE genre SET name = ? WHERE id = ?", name, id);
+    res.json(data);
+});
+
+app.delete("/genres/:id", async (req, res) => {
+    const {id} = req.params;
+    const data = await db.all("DELETE FROM genre WHERE id = ?", id);
+    res.json(data);
+});
+
+app.get("/all", async (req, res) => {
+    const data = await db.all("SELECT * FROM movie");
+    console.log(data);
+    if (data.length === 0) {
+        res.status(404).json({error: "No movies found"});
+        return;
+    }
+    res.json(data);
+});
+
+init(path).then(() =>{
+    app.listen(3333, () => console.log(`Listening on http://localhost:3333`));
 });

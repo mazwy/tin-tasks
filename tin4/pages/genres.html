@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Genres</title>
+</head>
+<body>
+<h1>Genre list</h1>
+
+<table>
+    <thead>
+    <tr>
+        <th>Name</th>
+    </tr>
+    </thead>
+    <tbody id="genres-container"></tbody>
+</table>
+
+<script>
+    async function fetchGenres() {
+        try {
+            const response = await fetch('/genres/all');
+            console.log(response);
+            const data = await response.json();
+            console.log(data);
+            const moviesContainer = document.getElementById('genres-container');
+            moviesContainer.innerHTML = '';
+            data.forEach(genre => {
+                const row = document.createElement('tr');
+                row.innerHTML = `<td>${genre.name}</td>`;
+                moviesContainer.appendChild(row);
+            });
+        } catch (e) {
+            console.error(e);
+        }
+    }
+
+    window.onload = fetchGenres;
+</script>
+</body>
+</html>
